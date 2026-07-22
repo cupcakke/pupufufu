@@ -1464,7 +1464,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #09090f
+      background: var(--bg)
     }
     body {
       position: relative
@@ -1477,7 +1477,7 @@
       display: block;
       pointer-events: none;
       z-index: 0;
-      background: #09090f
+      background: var(--bg)
     }
     #bg {
       background: transparent !important;
@@ -1520,6 +1520,23 @@
     }
     .as-backdrop {
       position: absolute !important
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --fg: #f5f5f7;
+        --fg2: rgba(245, 245, 247, .58);
+        --fg3: rgba(245, 245, 247, .28);
+        --bg: #09090f;
+        --sep: rgba(255, 255, 255, .055);
+        --hover: rgba(255, 255, 255, .055);
+        --green-soft: #ffffff
+      }
+    }
+    [data-online="false"] .ib-row {
+      opacity: .6
+    }
+    [data-online="false"] .sbtn {
+      opacity: .5
     }
   </style>
   <script>
@@ -1995,6 +2012,7 @@
         <button class="sb-close" id="btn-sb-search" aria-label="Keresés"><svg viewBox="0 0 24 24">
             <path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.49 4.49 0 0 1 9.5 14z" />
           </svg></button>
+        <button class="sb-close" id="share-btn" aria-label="Megosztás"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></button>
       </div>
       <div id="sb-search-bar">
         <div class="sb-si lg">
@@ -2042,6 +2060,8 @@
             <button class="ibtn lg" id="btn-gal" aria-label="Kép csatolása" type="button" data-haptic="impact-light"><svg viewBox="0 0 24 24">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg></button>
+            <button class="ibtn lg" id="btn-camera" aria-label="Fotó készítése" type="button" data-haptic="impact-light"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+            <button class="ibtn lg" id="btn-geo" aria-label="Helymeghatározás" type="button" data-haptic="impact-light"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
             <form class="ibox lg" onsubmit="event.preventDefault();"><textarea id="ta" placeholder="Üzenet" rows="1" aria-label="Üzenet" enterkeyhint="send"></textarea></form>
             <button class="sbtn" id="sbtn" disabled aria-label="Küldés" type="button" data-haptic="impact-medium"><svg id="sico" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 19V5M5 12l7-7 7 7" />
@@ -2144,7 +2164,8 @@
         lastIBH = h;
         stb.style.bottom = h + 14 + "px";
         if (window.__nativeApp) {
-          sa.style.paddingBottom = "20px";
+          var kbH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--native-keyboard-height")) || 0;
+          sa.style.paddingBottom = (20 + kbH) + "px";
         } else {
           sa.style.paddingBottom = "20px";
         }
@@ -2418,10 +2439,29 @@
           nq = norm(q),
           i = ns.indexOf(nq);
         if (i < 0) return esc(s);
-        var a = Array.from(s);
-        var before = esc(a.slice(0, i).join(""));
-        var mid = esc(a.slice(i, i + Array.from(q).length).join(""));
-        var after = esc(a.slice(i + Array.from(q).length).join(""));
+        var chars = Array.from(s);
+        var normPos = 0;
+        var startOrig = -1;
+        var endOrig = chars.length;
+        var nqLen = nq.length;
+        for (var ci = 0; ci < chars.length; ci++) {
+          var charNormLen = norm(chars[ci]).length;
+          if (startOrig === -1) {
+            if (normPos <= i && i < normPos + charNormLen) {
+              startOrig = ci;
+            }
+          }
+          if (startOrig !== -1 && endOrig === chars.length) {
+            if (normPos + charNormLen >= i + nqLen) {
+              endOrig = ci + 1;
+            }
+          }
+          normPos += charNormLen;
+        }
+        if (startOrig === -1) startOrig = 0;
+        var before = esc(chars.slice(0, startOrig).join(""));
+        var mid = esc(chars.slice(startOrig, endOrig).join(""));
+        var after = esc(chars.slice(endOrig).join(""));
         return before + "<mark>" + mid + "</mark>" + after;
       }
       var _histDateFmt = new Intl.DateTimeFormat("hu", {
@@ -3084,7 +3124,9 @@
         rmTyping();
         ctrl = new AbortController();
         var signal = ctrl.signal;
+        var timeoutAbort = false;
         var timeout = setTimeout(function () {
+          timeoutAbort = true;
           try {
             ctrl.abort();
           } catch (e) {}
@@ -3339,7 +3381,7 @@
           clearTimeout(timeout);
           rmTyping();
           flush();
-          if (signal.aborted) {
+          if (signal.aborted && !timeoutAbort) {
             if (bufText && curr && !streamFinished) {
               var ref = {
                 role: "assistant",
@@ -3603,7 +3645,14 @@
             }).filter(Boolean);
             var g;
             if (role === "user") {
-              g = mkUser(content, srcs, content, null);
+              var userPayload = {
+                rawText: content,
+                fullText: content,
+                imgPay: [],
+                imageUrls: srcs,
+                textAtts: []
+              };
+              g = mkUser(content, srcs, content, userPayload);
               attach(g, {
                 role: "user",
                 content: content,
@@ -4052,12 +4101,16 @@
         return m ? parseFloat(m[1] + "." + m[2]) : 0;
       }
       var iOSVersion = getiOSVersion();
+      var _wakeLock = null;
       function requestWakeLock() {
         if (!("wakeLock" in navigator)) return;
         navigator.wakeLock.request("screen").then(function (lock) {
+          _wakeLock = lock;
           document.addEventListener("visibilitychange", function reacquire() {
             if (document.visibilityState === "visible") {
-              navigator.wakeLock.request("screen").catch(function () {});
+              navigator.wakeLock.request("screen").then(function (newLock) {
+                _wakeLock = newLock;
+              }).catch(function () {});
             }
           });
         }).catch(function () {});
